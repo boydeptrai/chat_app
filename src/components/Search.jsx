@@ -1,19 +1,97 @@
-import React from 'react'
+import {
+  collection,
+  doc,
+  getDoc,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import React, { useContext, useState } from "react";
+import { db } from "../firebase";
+import { AuthContext } from "../context/AuthContext";
 
 const Search = () => {
-  return (
-    <div className='search'>
-      <div className="search-form">
-        <input type="text" placeholder='find a user' />
-      </div>
-      <div className="user-chat">
-        <img src="https://scontent.fsgn5-8.fna.fbcdn.net/v/t39.30808-1/335016940_900832347792588_7782826364201298440_n.jpg?stp=c0.0.200.200a_dst-jpg_p200x200&_nc_cat=109&ccb=1-7&_nc_sid=7206a8&_nc_ohc=aTiovSst5uAAX_GNqdw&_nc_ht=scontent.fsgn5-8.fna&oh=00_AfD5D1F7UOQlv_496O6LiIAAC-cqKG7iTsDZ3r00bLOHIA&oe=641F210C" alt="" />
-        <div className="user-chat-info">
-          <span>Hoa</span>
-        </div>
-      </div>
-    </div>
-  )
-}
+  const [username, setUsername] = useState("");
+  const [user, setUser] = useState(null);
+  const [err, setErr] = useState(false);
 
-export default Search
+  const { currentUser } = useContext(AuthContext);
+  const handleSearch = async () => {
+    const q = query(
+      collection(db, "users"),
+      where("displayName", "==", username)
+    );
+    try {
+      const querySnapshot = await getDoc(q);
+      querySnapshot.forEach((doc) => {
+        setUser(doc.data());
+      });
+    } catch (error) {
+      setErr(true);
+    }
+  };
+  const handleKey = (e) => {
+    e.code === "Enter" && handleSearch();
+  };
+
+  const handleSelect = async () => {
+    const combinedId =
+      currentUser.uid > user.uid
+        ? currentUser.uid + user.uid
+        : user.uid + currentUser.uid;
+    try {
+      const res = await getDoc(doc(db, "chats", combinedId));
+
+      if (!res.exists()) {
+        //create a chat in chats collection
+        await getDoc(doc(db, "chats", combinedId), { messages: [] });
+
+        //create user chats
+        await updateDoc(doc(db, "userChats", currentUser.uid), {
+          [combinedId + ".userInfo"]: {
+            uid: user.uid,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+          },
+          [combinedId + ".date"]: serverTimestamp(),
+        });
+        await updateDoc(doc(db, "userChats", user.uid), {
+          [combinedId + ".userInfo"]: {
+            uid: currentUser.uid,
+            displayName: currentUser.displayName,
+            photoURL: currentUser.photoURL,
+          },
+          [combinedId + ".date"]: serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      setUser(null)
+      setUsername("")
+    }
+  };
+  return (
+    <div className="search">
+      <div className="search-form">
+        <input
+          type="text"
+          placeholder="find a user"
+          onKeyDown={handleKey}
+          onChange={(e) => setUsername(e.target.value)}
+          value={username}
+        />
+      </div>
+      {err && <span>User not found</span>}
+      {user && (
+        <div className="user-chat" onClick={handleSelect}>
+          <img src={user.photoURL} alt="" />
+          <div className="user-chat-info">
+            <span>{user.displayName}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Search;
