@@ -8,6 +8,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 const Register = () => {
   const [err, setErr] = useState(false);
+  const [loading,setLoading] = useState(false)
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -47,13 +48,14 @@ const Register = () => {
           } catch (err) {
             console.log(err);
             setErr(true);
+            setLoading(false)
           
           }
         });
       });
     } catch (err) {
       setErr(true);
-    
+      setLoading(false)
     }
   };
 
@@ -71,7 +73,8 @@ const Register = () => {
                 <img src={Add} alt="" />
                 <span>Add an account</span>
             </label>
-            <button>Sign up</button>
+            <button disabled={loading}>Sign up</button>
+            {loading && "Uploading and compressing the image please wait..."}
             {err && <span>Something anything...</span>}
         </form>
         <p>You do have an account? <Link to="/register">Login</Link></p>
