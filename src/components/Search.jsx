@@ -2,8 +2,10 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -17,25 +19,29 @@ const Search = () => {
   const [err, setErr] = useState(false);
 
   const { currentUser } = useContext(AuthContext);
+
   const handleSearch = async () => {
     const q = query(
       collection(db, "users"),
       where("displayName", "==", username)
     );
+
     try {
-      const querySnapshot = await getDoc(q);
+      const querySnapshot = await getDocs(q);
       querySnapshot.forEach((doc) => {
         setUser(doc.data());
       });
-    } catch (error) {
+    } catch (err) {
       setErr(true);
     }
   };
+
   const handleKey = (e) => {
     e.code === "Enter" && handleSearch();
   };
 
   const handleSelect = async () => {
+    //check whether the group(chats in firestore) exists, if not create
     const combinedId =
       currentUser.uid > user.uid
         ? currentUser.uid + user.uid
@@ -45,7 +51,7 @@ const Search = () => {
 
       if (!res.exists()) {
         //create a chat in chats collection
-        await getDoc(doc(db, "chats", combinedId), { messages: [] });
+        await setDoc(doc(db, "chats", combinedId), { messages: [] });
 
         //create user chats
         await updateDoc(doc(db, "userChats", currentUser.uid), {
@@ -56,6 +62,7 @@ const Search = () => {
           },
           [combinedId + ".date"]: serverTimestamp(),
         });
+
         await updateDoc(doc(db, "userChats", user.uid), {
           [combinedId + ".userInfo"]: {
             uid: currentUser.uid,
@@ -65,23 +72,23 @@ const Search = () => {
           [combinedId + ".date"]: serverTimestamp(),
         });
       }
-    } catch (error) {
-      setUser(null)
-      setUsername("")
-    }
+    } catch (err) {}
+
+    setUser(null);
+    setUsername("")
   };
   return (
     <div className="search">
       <div className="search-form">
         <input
           type="text"
-          placeholder="find a user"
+          placeholder="Find a user"
           onKeyDown={handleKey}
           onChange={(e) => setUsername(e.target.value)}
           value={username}
         />
       </div>
-      {err && <span>User not found</span>}
+      {err && <span>User not found!</span>}
       {user && (
         <div className="user-chat" onClick={handleSelect}>
           <img src={user.photoURL} alt="" />
